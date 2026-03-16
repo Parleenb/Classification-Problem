@@ -4,6 +4,7 @@ from sklearn.metrics import confusion_matrix
 
 iris = load_iris()
 print(iris.keys())
+
 #print(iris.data)
 print(iris.target_names)
 
