@@ -7,7 +7,7 @@ def sigmoid(z):
     return 1/(1 + np.exp(-z))
 
 def add_bias(X):
-    return np.hstac((X, np.ones((X.shape[0], 1))))
+    return np.hstack((X, np.ones((X.shape[0], 1))))
 
 def one_hot(y, num_classes=3):
     T = np.zeros((len(y), num_classes))
@@ -29,11 +29,21 @@ y = iris.target
 
 # first 30 of each class for training, last 20 of each class for testing
 #1)a)
+# case 1
+"""
 X_train = np.vstack((X[0:30], X[50:80], X[100:130]))
 X_test  = np.vstack((X[30:50], X[80:100], X[130:150]))
 
 y_train = np.hstack((y[0:30], y[50:80], y[100:130]))
 y_test  = np.hstack((y[30:50], y[80:100], y[130:150]))
+"""
+
+# case 2 (part d)
+X_train = np.vstack((X[20:50], X[70:100], X[120:150]))
+X_test  = np.vstack((X[0:20], X[50:70], X[100:120]))
+
+y_train = np.hstack((y[20:50], y[70:100], y[120:150]))
+y_test  = np.hstack((y[0:20], y[50:70], y[100:120]))
 
 #1)b)
 # add bias term
@@ -90,5 +100,66 @@ print("Test error rate:", error_rate(y_test, y_pred_test))
 #1)d)
 #Trained and tested already.
 
+"""
+1)a) with alpha = 0.01
+Training confusion matrix:
+[[30  0  0]
+ [ 0 29  1]
+ [ 0  0 30]]
+Training error rate: 0.011111111111111112
+
+Test confusion matrix:
+[[20  0  0]
+ [ 0 18  2]
+ [ 0  0 20]]
+Test error rate: 0.03333333333333333
+
+1)a) with alpha = 0.001
+Training confusion matrix:
+[[30  0  0]
+ [ 0 29  1]
+ [ 0  0 30]]
+Training error rate: 0.03333333333333333
+
+Test confusion matrix:
+[[20  0  0]
+ [ 0 18  2]
+ [ 0  0 20]]
+Test error rate: 0.03333333333333333
+"""
+
+"""
+1)d) with alpha = 0.01
+Training confusion matrix:
+[[30  0  0]
+ [ 0 28  2]
+ [ 0  3 27]]
+Training error rate: 0.05555555555555555
+
+Test confusion matrix:
+[[20  0  0]
+ [ 0 20  0]
+ [ 0  0 20]]
+Test error rate: 0.0
+
+1)d) with alpha = 0.001
+Training confusion matrix:
+[[30  0  0]
+ [ 0 28  2]
+ [ 0  3 27]]
+Training error rate: 0.05555555555555555
+
+Test confusion matrix:
+[[20  0  0]
+ [ 0 20  0]
+ [ 0  0 20]]
+Test error rate: 0.0
+"""
+
 #1)e)
-#We noticed that...
+#The results for the two splits are similar overall, but some differences can be observed. 
+# In (a), the training error is very low and the test error is small but non-zero. 
+# In case (d), the training error is slightly higher, while the test error is zero. 
+# This does not necessarily mean the classifier is better in case (d), but rather that the chosen test samples are easier to classify. 
+# The variation in error rates is due to the different data splits, and this goes to show that performance depends on which samples are used for training and testing. 
+# Overall, the classifier performs well in both cases, which confirms that the Iris dataset is close to linearly separable.
