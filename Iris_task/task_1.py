@@ -35,6 +35,7 @@ X_test  = np.vstack((X[30:50], X[80:100], X[130:150]))
 y_train = np.hstack((y[0:30], y[50:80], y[100:130]))
 y_test  = np.hstack((y[30:50], y[80:100], y[130:150]))
 
+#1)b)
 # add bias term
 X_train_b = add_bias(X_train)
 X_test_b = add_bias(X_test)
@@ -72,6 +73,7 @@ for it in range(max_iters):
         break
 
 # ---------- evaluate ----------
+#1)c)
 y_pred_train = predict(X_train_b, W)
 y_pred_test = predict(X_test_b, W)
 
@@ -85,3 +87,8 @@ print("Test error rate:", error_rate(y_test, y_pred_test))
 
 #--------------------------------
 
+#1)d)
+#Trained and tested already.
+
+#1)e)
+#We noticed that...
