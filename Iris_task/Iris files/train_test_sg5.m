@@ -18,12 +18,15 @@ x3= [x3all(:,4)];
 [Ntot,dimx] = size(x1);
 
 for k = 1:5
+	% Nd Chooses 30 samples for training
 	N1d = (k-1)*10 +1; N2d = rem((k+2)*10-1, 50)+1; N1t = rem(N2d+1,50); N2t = rem(N2d+19,50)+1;
 	if(N2d < N1d)
 		x1d = [x1(N1d:Ntot,:); x1(1:N2d,:)]; x2d = [x2(N1d:Ntot,:); x2(1:N2d,:)]; x3d = [x3(N1d:Ntot,:); x3(1:N2d,:)];
 	else
 		x1d = x1(N1d:N2d,:); x2d = x2(N1d:N2d,:); x3d = x3(N1d:N2d,:);
 	end
+
+	% Nt Chooses the remaining 20 samples for testing
 	if(N2t < N1t)
 		x1t = [x1(N1t:Ntot,:); x1(1:N2t,:)]; x2t = [x2(N1t:Ntot,:); x2(1:N2t,:)]; x3t = [x3(N1t:Ntot,:); x3(1:N2t,:)];
 	else
@@ -40,6 +43,7 @@ for k = 1:5
 
 	indd =zeros(Ndtot,3);
 
+	% mvnpdf = It computes the likelihood under all 3 class models and chooses the class with the highest likelihood as the winner.
 	y1d =zeros(Ndtot,3);
 	y1d(:,1) = mvnpdf(x1d,x1m, x1s);
 	y1d(:,2) = mvnpdf(x1d,x2m, x2s);
@@ -58,6 +62,7 @@ for k = 1:5
 	y3d(:,3) = mvnpdf(x3d,x3m, x3s);
 	[val3d,indd(:,3)] = max(y3d');
 
+	% confusion matrix for testing 
 	confd = zeros(3,3);
 
 	for i = 1:3 % correct class
