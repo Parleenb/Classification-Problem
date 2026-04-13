@@ -1,12 +1,11 @@
 import numpy as np
 from scipy.io import loadmat
 from sklearn.metrics import confusion_matrix
-
+import matplotlib.pyplot as plt
 # --------------------------------------------------
 # 1. LOAD DATA FROM data_all.mat
 # --------------------------------------------------
-data = loadmat('data_all.mat')
-
+data = loadmat(r'MNIST files\data_all.mat')
 trainv = data['trainv']          # Training images (60000 x 784)
 testv = data['testv']            # Test images (10000 x 784)
 trainlab = data['trainlab'].flatten()  # Training labels
@@ -75,3 +74,74 @@ print(conf_mat)
 error_rate = np.mean(predictions != testlab)
 
 print("\nError rate:", error_rate)
+
+
+"""
+Task 1b
+"""
+
+
+# --------------------------------------------------
+# 1. FIND MISCLASSIFIED INDICES
+# --------------------------------------------------
+
+# Indices where prediction != true label
+misclassified_idx = np.where(predictions != testlab)[0]
+
+print("Number of misclassified images:", len(misclassified_idx))
+
+# --------------------------------------------------
+# 2. PLOT SOME MISCLASSIFIED IMAGES
+# --------------------------------------------------
+
+num_to_plot = 10  # number of images to show
+
+for i in range(num_to_plot):
+    
+    idx = misclassified_idx[i]  # index of misclassified image
+    
+    # --------------------------------------------------
+    # Convert vector to 28x28 image
+    # --------------------------------------------------
+    x = testv[idx, :].reshape((28, 28))
+    
+    # --------------------------------------------------
+    # Plot image
+    # --------------------------------------------------
+    plt.imshow(x, cmap='gray')
+    plt.title(f"True: {testlab[idx]}, Predicted: {predictions[idx]}")
+    plt.axis('off')  # remove axes for cleaner image
+    plt.show()
+
+
+    """
+    Task 1c
+    """
+
+    # --------------------------------------------------
+# 1. FIND CORRECTLY CLASSIFIED INDICES
+# --------------------------------------------------
+
+# Indices where prediction == true label
+correct_idx = np.where(predictions == testlab)[0]
+
+print("Number of correctly classified images:", len(correct_idx))
+
+# --------------------------------------------------
+# 2. PLOT SOME CORRECTLY CLASSIFIED IMAGES
+# --------------------------------------------------
+
+num_to_plot = 10  # number of correct images to show
+
+for i in range(num_to_plot):
+    
+    idx = correct_idx[i]  # index of correctly classified image
+    
+    # Convert the image vector to a 28x28 image
+    x = testv[idx, :].reshape((28, 28))
+    
+    # Plot the image
+    plt.imshow(x, cmap='gray')
+    plt.title(f"True: {testlab[idx]}, Predicted: {predictions[idx]}")
+    plt.axis('off')  # hide axes
+    plt.show()
