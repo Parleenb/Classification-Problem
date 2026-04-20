@@ -1,5 +1,4 @@
 import numpy as np
-import time
 from scipy.io import loadmat
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
