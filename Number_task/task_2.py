@@ -1,19 +1,23 @@
 import numpy as np
+import time
 from scipy.io import loadmat
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+import os
 # --------------------------------------------------
-# 1. LOAD DATA FROM data_all.mat
+# Load data from file data_all.mat
 # --------------------------------------------------
-data = loadmat(r'MNIST files\data_all.mat')
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_path = os.path.join(script_dir, 'MNIST files', 'data_all.mat')
+data = loadmat(data_path)
 trainv = data['trainv']          # Training images (60000 x 784)
 testv = data['testv']            # Test images (10000 x 784)
 trainlab = data['trainlab'].flatten()  # Training labels
 testlab = data['testlab'].flatten()    # Test labels
 
 # --------------------------------------------------
-# 2. NORMALIZE DATA (scale pixel values to 0-1)
+# Normalize pixel values from [0,255] to [0,1]
 # --------------------------------------------------
 trainv = trainv / 255.0
 testv = testv / 255.0
@@ -180,7 +184,8 @@ for digit in range(num_classes):
     # --------------------------------------------------
     # Apply KMeans clustering
     # --------------------------------------------------
-    kmeans = KMeans(n_clusters=M, random_state=42)
+    kmeans = KMeans(n_clusters=M, random_state=42, n_init=10)
+    #kmeans = KMeans(n_clusters=M, random_state=42)
     
     idx_i = kmeans.fit_predict(train_vi)   # cluster assignment (not used later)
     Ci = kmeans.cluster_centers_           # cluster centers (important!)
