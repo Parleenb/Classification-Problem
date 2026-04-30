@@ -27,9 +27,8 @@ trainv = trainv / 255.0
 testv = testv / 255.0
 
 
-# Functions
 # NN (Task 1)
-def compute_1nn_predictions(train_data, train_labels, test_data, chunk_size=1000):
+def compute_nn_predictions(train_data, train_labels, test_data, chunk_size=1000):
     predictions = []
     num_test = test_data.shape[0]
 
@@ -45,7 +44,7 @@ def compute_1nn_predictions(train_data, train_labels, test_data, chunk_size=1000
         # Compute squared lengths for test chunk
         test_sq = np.sum(test_chunk**2, axis=1).reshape(-1, 1)
 
-        #  Euclidean distance, Formula (9) from report
+        #  Squared Euclidean distance, Formula (9) from report
         distances = test_sq + train_sq - 2 * np.dot(test_chunk, train_data.T)
 
         # Avoid negative values
@@ -171,7 +170,7 @@ def plot_examples(images, true_labels, pred_labels, indices, title_prefix, num_t
 
 #Task 1a: NN without clustering
 start = time.time() # timer start
-prediction_NN = compute_1nn_predictions(trainv, trainlab, testv, chunk_size=1000)
+prediction_NN = compute_nn_predictions(trainv, trainlab, testv, chunk_size=1000)
 time_NN = time.time() - start
 
 conf_NN, err_NN = evaluate_classifier(testlab, prediction_NN, "NN")
@@ -191,13 +190,15 @@ plot_examples(testv, testlab, prediction_NN, correct_images, "Correctly classifi
 
 # Task 2a: clustering the data
 cluster_centers, cluster_labels = build_cluster_templates(trainv, trainlab, M=64, num_classes=10)
-print("Cluster centers shape:", cluster_centers.shape)
-print("Cluster labels shape:", cluster_labels.shape)
+
+# Use for debugging, supposed to be 640 clusters and 784 pxls
+#print("Cluster centers shape:", cluster_centers.shape)
+#print("Cluster labels shape:", cluster_labels.shape)
 
 
 # Task 2b: NN with clustering
 start = time.time()
-prediction_cluster_NN = compute_1nn_predictions(cluster_centers, cluster_labels, testv, chunk_size=1000)
+prediction_cluster_NN = compute_nn_predictions(cluster_centers, cluster_labels, testv, chunk_size=1000)
 time_cluster_NN = time.time() - start
 
 conf_cluster, err_cluster = evaluate_classifier(testlab, prediction_cluster_NN, "Cluster NN")
