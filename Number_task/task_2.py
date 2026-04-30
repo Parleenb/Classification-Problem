@@ -1,361 +1,215 @@
-import numpy as np
-from scipy.io import loadmat
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
 import os
-# --------------------------------------------------
-# Load data from file data_all.mat
-# --------------------------------------------------
-script_dir = os.path.dirname(os.path.abspath(__file__))
-data_path = os.path.join(script_dir, 'MNIST files', 'data_all.mat')
-data = loadmat(data_path)
-trainv = data['trainv']          # Training images (60000 x 784)
-testv = data['testv']            # Test images (10000 x 784)
-trainlab = data['trainlab'].flatten()  # Training labels
-testlab = data['testlab'].flatten()    # Test labels
+import time
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import loadmat
+from sklearn.cluster import KMeans
+from sklearn.metrics import confusion_matrix
 
-# --------------------------------------------------
-# Normalize pixel values from [0,255] to [0,1]
-# --------------------------------------------------
+
+# Load data
+script_direction = os.path.dirname(os.path.abspath(__file__))
+data_path = os.path.join(script_direction, "MNIST files", "data_all.mat")
+
+data = loadmat(data_path)
+
+trainv = data["trainv"]
+testv = data["testv"]
+
+trainlab = data["trainlab"].flatten()
+testlab = data["testlab"].flatten()
+
+trainlab = trainlab.astype(int)
+testlab = testlab.astype(int)
+
+# Normalize from 0-255 to 0-1
 trainv = trainv / 255.0
 testv = testv / 255.0
 
-# --------------------------------------------------
-# 3. NEAREST NEIGHBOR CLASSIFIER (k = 1)
-# Using Euclidean distance
-# --------------------------------------------------
 
-chunk_size = 1000  # as suggested in the task
-num_test = testv.shape[0]
+# NN (Task 1)
+def compute_nn_predictions(train_data, train_labels, test_data, chunk_size=1000):
+    predictions = []
+    num_test = test_data.shape[0]
 
-predictions = []  # to store predicted labels
+    # Precompute squared lengths for training data
+    train_sq = np.sum(train_data**2, axis=1)
 
-# Loop over test data in chunks
-for i in range(0, num_test, chunk_size):
-    print(f"Processing chunk {i} to {i + chunk_size}...")
-    
-    test_chunk = testv[i:i+chunk_size]  # take a chunk of test images
-    
-    # --------------------------------------------------
-    # Compute Euclidean distance:
-    # distance = ||test - train||^2
-    # Using efficient vectorized formula:
-    # (a - b)^2 = a^2 + b^2 - 2ab
-    # --------------------------------------------------
-    
-    # squared norms
-    test_sq = np.sum(test_chunk**2, axis=1, keepdims=True)   # shape: (chunk, 1)
-    train_sq = np.sum(trainv**2, axis=1)                     # shape: (60000,)
-    
-    # distance matrix (chunk_size x 60000)
-    distances = test_sq + train_sq - 2 * np.dot(test_chunk, trainv.T)
-    
-    # --------------------------------------------------
-    # Find nearest neighbor (minimum distance)
-    # --------------------------------------------------
-    nearest_idx = np.argmin(distances, axis=1)
-    
-    # Get predicted labels
-    pred_labels = trainlab[nearest_idx]
-    
-    predictions.extend(pred_labels)
+    for i in range(0, num_test, chunk_size):
+        end = min(i + chunk_size, num_test)
+        print(f"Processing chunk {i} to {end}")
 
-# Convert to numpy array
-predictions = np.array(predictions)
+        test_chunk = test_data[i:end]
 
-# --------------------------------------------------
-# 4. CONFUSION MATRIX
-# --------------------------------------------------
-conf_mat = confusion_matrix(testlab, predictions)
+        # Compute squared lengths for test chunk
+        test_sq = np.sum(test_chunk**2, axis=1).reshape(-1, 1)
 
-print("\nConfusion Matrix:")
-print(conf_mat)
+        #  Squared Euclidean distance, Formula (9) from report
+        distances = test_sq + train_sq - 2 * np.dot(test_chunk, train_data.T)
 
-# --------------------------------------------------
-# 5. ERROR RATE
-# --------------------------------------------------
-error_rate = np.mean(predictions != testlab)
+        # Avoid negative values
+        distances[distances < 0] = 0
 
-print("\nError rate:", error_rate)
+        # Find NN
+        nearest_idx = np.argmin(distances, axis=1)
+
+        for idx in nearest_idx:
+            predictions.append(train_labels[idx])
+
+    return np.array(predictions)
 
 
-"""
-Task 1b
-"""
+# KNN with K=7, change K as needed (Task 2c)
+def compute_knn_predictions(train_data, train_labels, test_data, K=7, chunk_size=1000):
+    predictions = []
+    num_test = test_data.shape[0]
+
+    # Precompute squared lengths for training data
+    train_sq = np.sum(train_data**2, axis=1)
+
+    for i in range(0, num_test, chunk_size):
+        end = min(i + chunk_size, num_test)
+        print(f"Processing chunk {i} to {end}...")
+
+        test_chunk = test_data[i:end]
+
+        # Squared lengths for test data
+        test_sq = np.sum(test_chunk**2, axis=1).reshape(-1, 1)
+
+        # Sqyared euclidean distance
+        distances = test_sq + train_sq - 2 * np.dot(test_chunk, train_data.T)
+        distances[distances < 0] = 0
+
+        # Find closest K neighbors
+        nearest_idx = np.argpartition(distances, K, axis=1)[:, :K]
+
+        # Labels of closest K neighbors
+        nearest_labels = train_labels[nearest_idx]
+
+        # Majority voting -> predict the most common label among neighbors
+        for row in nearest_labels:
+            counts = np.bincount(row.astype(int))
+            pred_label = np.argmax(counts)
+            predictions.append(pred_label)
+
+    return np.array(predictions)
 
 
-# --------------------------------------------------
-# 1. FIND MISCLASSIFIED INDICES
-# --------------------------------------------------
+# Clustering templates (Task 2a)
+def build_cluster_templates(train_data, train_labels, M=64, num_classes=10):
+    centers_list = []
+    labels_list = []
 
-# Indices where prediction != true label
-misclassified_idx = np.where(predictions != testlab)[0]
+    for i in range(num_classes):
+        print("Clustering number", i)
 
-print("Number of misclassified images:", len(misclassified_idx))
+        # Find samples for the class
+        idx = np.where(train_labels == i)[0]
+        class_data = train_data[idx]
 
-# --------------------------------------------------
-# 2. PLOT SOME MISCLASSIFIED IMAGES
-# --------------------------------------------------
+        # KMeans
+        kmeans = KMeans(n_clusters=M, random_state=42, n_init=10)
+        kmeans.fit(class_data)
 
-num_to_plot = 10  # number of images to show
+        # Store centers/centroids
+        centers_list.append(kmeans.cluster_centers_)
 
-for i in range(num_to_plot):
-    
-    idx = misclassified_idx[i]  # index of misclassified image
-    
-    # --------------------------------------------------
-    # Convert vector to 28x28 image
-    # --------------------------------------------------
-    x = testv[idx, :].reshape((28, 28))
-    
-    # --------------------------------------------------
-    # Plot image
-    # --------------------------------------------------
-    plt.imshow(x, cmap='gray')
-    plt.title(f"True: {testlab[idx]}, Predicted: {predictions[idx]}")
-    plt.axis('off')  # remove axes for cleaner image
+        # Store corresponding labels for the centers
+        class_labels = []
+        for _ in range(M):
+            class_labels.append(i)
+
+        labels_list.append(np.array(class_labels))
+
+    # Combine results
+    cluster_centers = np.concatenate(centers_list, axis=0)
+    cluster_labels = np.concatenate(labels_list, axis=0)
+
+    return cluster_centers, cluster_labels
+
+
+# Evaluation of classifiers: confusion matrix and error rate (Task 2b and 2c)
+def evaluate_classifier(true_labels, pred_labels, name="Classifier"):
+    # Compute confusion matrix
+    conf_matrix = confusion_matrix(true_labels, pred_labels)
+
+    # Compute error rate 
+    num_wrong = np.sum(pred_labels != true_labels)
+    error_rate = num_wrong / len(true_labels)
+
+    print("\n" + name + " confusion matrix:")
+    print(conf_matrix)
+
+    print("\n" + name + " error rate:", round(error_rate, 4))
+
+    return conf_matrix, error_rate
+
+
+# Plotting examples (Task 1b and 1c)
+def plot_examples(images, true_labels, pred_labels, indices, title_prefix, num_to_plot=10):
+    plt.figure(figsize=(12, 5))
+
+    count = min(num_to_plot, len(indices))
+
+    for j in range(count):
+        idx = indices[j]
+        plt.subplot(2, 5, j + 1)
+
+        # Reshape image
+        img = images[idx].reshape(28, 28)
+        plt.imshow(img, cmap='gray')
+        title_text = "T:" + str(true_labels[idx]) + " P:" + str(pred_labels[idx])
+        plt.title(title_text)
+        plt.axis('off')
+
+    plt.suptitle(title_prefix)
+    plt.tight_layout()
     plt.show()
 
 
-    """
-    Task 1c
-    """
 
-    # --------------------------------------------------
-# 1. FIND CORRECTLY CLASSIFIED INDICES
-# --------------------------------------------------
+#Task 1a: NN without clustering
+start = time.time() # timer start
+prediction_NN = compute_nn_predictions(trainv, trainlab, testv, chunk_size=1000)
+time_NN = time.time() - start
 
-# Indices where prediction == true label
-correct_idx = np.where(predictions == testlab)[0]
+conf_NN, err_NN = evaluate_classifier(testlab, prediction_NN, "NN")
+print(f"NN processing time: {time_NN:.2f} seconds")
 
-print("Number of correctly classified images:", len(correct_idx))
-
-# --------------------------------------------------
-# 2. PLOT SOME CORRECTLY CLASSIFIED IMAGES
-# --------------------------------------------------
-
-num_to_plot = 10  # number of correct images to show
-
-for i in range(num_to_plot):
-    
-    idx = correct_idx[i]  # index of correctly classified image
-    
-    # Convert the image vector to a 28x28 image
-    x = testv[idx, :].reshape((28, 28))
-    
-    # Plot the image
-    plt.imshow(x, cmap='gray')
-    plt.title(f"True: {testlab[idx]}, Predicted: {predictions[idx]}")
-    plt.axis('off')  # hide axes
-    plt.show()
+# Task 1b: misclassified images
+misclassified_images = np.where(prediction_NN != testlab)[0]
+print("Number of misclassified images:", len(misclassified_images))
+plot_examples(testv, testlab, prediction_NN, misclassified_images, "Misclassified images")
 
 
-    """
-    Task 2a
-    """
+# Task 1c: correctly classified images
+correct_images = np.where(prediction_NN == testlab)[0]
+print("Number of correctly classified images:", len(correct_images))
+plot_examples(testv, testlab, prediction_NN, correct_images, "Correctly classified images")
 
 
-# --------------------------------------------------
-# 1. PARAMETERS
-# --------------------------------------------------
-M = 64  # number of clusters per class
-num_classes = 10
+# Task 2a: clustering the data
+cluster_centers, cluster_labels = build_cluster_templates(trainv, trainlab, M=64, num_classes=10)
 
-# Store cluster centers and their labels
-all_centers = []
-all_labels = []
-
-# --------------------------------------------------
-# 2. LOOP OVER EACH CLASS (0–9)
-# --------------------------------------------------
-for digit in range(num_classes):
-    
-    print(f"Clustering digit {digit}...")
-    
-    # --------------------------------------------------
-    # Extract all training samples of this class
-    # --------------------------------------------------
-    train_vi = trainv[trainlab == digit]
-    
-    # train_vi should have ~6000 samples for each digit
-    
-    # --------------------------------------------------
-    # Apply KMeans clustering
-    # --------------------------------------------------
-    kmeans = KMeans(n_clusters=M, random_state=42, n_init=10)
-    #kmeans = KMeans(n_clusters=M, random_state=42)
-    
-    idx_i = kmeans.fit_predict(train_vi)   # cluster assignment (not used later)
-    Ci = kmeans.cluster_centers_           # cluster centers (important!)
-    
-    # --------------------------------------------------
-    # Store cluster centers and labels
-    # --------------------------------------------------
-    all_centers.append(Ci)
-    all_labels.append(np.full(M, digit))  # label each center with the digit
-
-# --------------------------------------------------
-# 3. COMBINE ALL CLUSTERS INTO ONE DATASET
-# --------------------------------------------------
-cluster_centers = np.vstack(all_centers)   # shape: (10*M, 784)
-cluster_labels = np.hstack(all_labels)     # shape: (10*M,)
-
-print("Cluster centers shape:", cluster_centers.shape)
-print("Cluster labels shape:", cluster_labels.shape)
-
-# ==================================================
-# TASK 2(b): NN using cluster templates (640 total)
-# ==================================================
-
-from sklearn.metrics import confusion_matrix
-import numpy as np
-
-chunk_size = 1000
-num_test = testv.shape[0]
-
-pred_cluster_nn = []
-
-for i in range(0, num_test, chunk_size):
-    
-    print(f"Processing chunk {i} to {i+chunk_size}...")
-    
-    test_chunk = testv[i:i+chunk_size]
-    
-    # Compute Euclidean distance (same trick as before)
-    test_sq = np.sum(test_chunk**2, axis=1, keepdims=True)
-    train_sq = np.sum(cluster_centers**2, axis=1)
-    
-    distances = test_sq + train_sq - 2 * np.dot(test_chunk, cluster_centers.T)
-    
-    # Find nearest cluster center
-    nearest_idx = np.argmin(distances, axis=1)
-    
-    pred_labels = cluster_labels[nearest_idx]
-    
-    pred_cluster_nn.extend(pred_labels)
-
-pred_cluster_nn = np.array(pred_cluster_nn)
-
-# --------------------------------------------------
-# Confusion matrix
-# --------------------------------------------------
-conf_mat_cluster = confusion_matrix(testlab, pred_cluster_nn)
-
-print("\nConfusion Matrix (Cluster NN):")
-print(conf_mat_cluster)
-
-# --------------------------------------------------
-# Error rate
-# --------------------------------------------------
-error_cluster = np.mean(pred_cluster_nn != testlab)
-
-print("\nError rate (Cluster NN):", error_cluster)
-
-# ==================================================
-# TASK 2(c): KNN classifier (K = 7)
-# ==================================================
-
-from scipy.stats import mode
-
-K = 7
-pred_knn = []
-
-for i in range(0, num_test, chunk_size):
-    
-    print(f"Processing chunk {i} to {i+chunk_size}...")
-    
-    test_chunk = testv[i:i+chunk_size]
-    
-    # Compute distances
-    test_sq = np.sum(test_chunk**2, axis=1, keepdims=True)
-    train_sq = np.sum(cluster_centers**2, axis=1)
-    
-    distances = test_sq + train_sq - 2 * np.dot(test_chunk, cluster_centers.T)
-    
-    # Find K nearest neighbors
-    nearest_idx = np.argsort(distances, axis=1)[:, :K]
-    
-    nearest_labels = cluster_labels[nearest_idx]
-    
-    # Majority vote
-    pred_labels = mode(nearest_labels, axis=1).mode.flatten()
-    
-    pred_knn.extend(pred_labels)
-
-pred_knn = np.array(pred_knn)
-
-# --------------------------------------------------
-# Confusion matrix
-# --------------------------------------------------
-conf_mat_knn = confusion_matrix(testlab, pred_knn)
-
-print("\nConfusion Matrix (KNN, K=7):")
-print(conf_mat_knn)
-
-# --------------------------------------------------
-# Error rate
-# --------------------------------------------------
-error_knn = np.mean(pred_knn != testlab)
-
-print("\nError rate (KNN, K=7):", error_knn)
+# Use for debugging, supposed to be 640 clusters and 784 pxls
+#print("Cluster centers shape:", cluster_centers.shape)
+#print("Cluster labels shape:", cluster_labels.shape)
 
 
-"""
-2b)
+# Task 2b: NN with clustering
+start = time.time()
+prediction_cluster_NN = compute_nn_predictions(cluster_centers, cluster_labels, testv, chunk_size=1000)
+time_cluster_NN = time.time() - start
 
-Error rate (Cluster NN): 0.0477
-
-Confusion Matrix (Cluster NN):
-[[ 966    1    3    1    0    4    3    1    0    1]
- [   0 1126    3    1    0    0    3    0    1    1]
- [   9    8  979    8    1    0    3   11   12    1]
- [   0    0    7  940    1   32    0    6   17    7]
- [   1    6    2    0  922    0   10    4    3   34]
- [   3    1    0   20    2  845    9    1    7    4]
- [   8    3    2    0    3    3  935    0    3    1]
- [   0   20    8    0    4    1    0  961    2   32]
- [   5    1    3   11    3   20    2    6  917    6]
- [   5    6    4    5   30    1    1   19    6  932]]
+conf_cluster, err_cluster = evaluate_classifier(testlab, prediction_cluster_NN, "Cluster NN")
+print(f"Cluster NN processing time: {time_cluster_NN:.2f} seconds")
 
 
+# Task 2c: KNN with clustering, K = 7
+start = time.time()
+prediction_KNN = compute_knn_predictions(cluster_centers, cluster_labels, testv, K=7, chunk_size=1000)
+time_KNN = time.time() - start
 
-2c)
-Error rate (KNN, K=7): 0.063
+conf_KNN, err_KNN = evaluate_classifier(testlab, prediction_KNN, "Cluster KNN (K=7)")
+print(f"Cluster KNN (K=7) processing time: {time_KNN:.2f} seconds")
 
-Confusion Matrix (KNN, K=7):
-[[ 952    1    3    0    0    8   13    1    2    0]
- [   0 1128    2    1    0    1    2    0    1    0]
- [  13   15  952   12    3    1    4   14   18    0]
- [   2    3    8  947    2   19    0   12   14    3]
- [   1   14    4    0  901    0    7    2    2   51]
- [   3    3    4   28    4  836    7    1    4    2]
- [   9    4    4    0    5   10  924    0    2    0]
- [   0   33   13    2   12    0    0  939    0   29]
- [   5    3    6   25   10   32    2    7  875    9]
- [   7    9    3    9   32    4    1   20    8  916]]
-
- 
-Task 1: Error rate: 0.0309
-Task 2b: Error rate (Cluster NN): 0.0477
-Task 2c: Error rate (KNN, K=7): 0.063
-
-
-
-Using clustering significantly reduces computational complexity by replacing the 
-full training set with a smaller number of representative templates. However, this 
-leads to some loss in accuracy because cluster centers do not perfectly represent 
-all variations of handwritten digits. Introducing a KNN classifier with K = 7 improves 
-performance compared to using a single nearest neighbor, as it reduces sensitivity to
-noise and outliers. Overall, KNN with clustered templates provides a good balance 
-between accuracy and computational efficiency.
-
-The KNN classifier (K = 7) performs worse than the nearest neighbor classifier in this case. 
-This is because the classifier operates on cluster centers rather than the original training 
-data. Cluster centers are averaged representations and may not preserve important local 
-structures. As a result, using multiple neighbors introduces noise into the decision process, 
-leading to a higher error rate. In contrast, using a single nearest cluster center (NN) gives
-a more precise match. KNN generally performs better with large and dense datasets, but here
-the reduced dataset (640 templates) limits its effectiveness.
-
-"""
